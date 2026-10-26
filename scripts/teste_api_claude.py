@@ -11,7 +11,7 @@ import urllib.request
 PDF_PATH = r"C:\dev\clients\extract-pdf-ocr\entrada\CEMAVE_2025_10.pdf"
 API_URL = "https://api.anthropic.com/v1/messages"
 MODEL = "claude-sonnet-4-6"
-API_KEY = "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"  # ← substitua pela sua chave em console.anthropic.com
+API_KEY = "xxxx"  # ← substitua pela sua chave em console.anthropic.com
 
 PAGINAS_TESTE = [5, 11, 51, 61, 65, 80, 81, 89, 101, 105, 15, 25, 36, 130]
 
