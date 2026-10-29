@@ -16,10 +16,9 @@ EXTRATOR-PDF\
 │
 ├── scripts\
 │   ├── interface.py              ← Interface gráfica (ponto de entrada)
-│   └── extrator_visao_claude.py  ← Motor de extração via API Claude
+│   └── extrator_visao_claude.py  
 │
-├── instalar_dependencias.py  ← Execute UMA VEZ após instalar o Python
-├── set-env.txt               ← Instruções para configurar a chave de API
+├── instalar_dependencias.py  ← Execute UMA VEZ pós Py
 └── README.md
 ```
 
@@ -48,15 +47,6 @@ Ou manualmente:
 ```powershell
 pip install pymupdf openpyxl
 ```
-
-### 3. Configurar a chave de API
-
-Abra o PowerShell e execute o comando abaixo, substituindo pelo valor fornecido pelo suporte:
-```powershell
-[System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "sua-chave-aqui", "User")
-```
-
-> A chave fica salva no perfil do usuário Windows. Não é necessário repetir esse passo a cada uso.
 
 ---
 
