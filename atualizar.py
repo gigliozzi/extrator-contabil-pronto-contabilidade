@@ -21,8 +21,6 @@ REPO_RAW = "https://raw.githubusercontent.com/gigliozzi/extrator-contabil-pronto
 ARQUIVOS = [
     ("scripts/extrator_visao_claude.py", "scripts/extrator_visao_claude.py"),
     ("scripts/interface.py",             "scripts/interface.py"),
-    ("instalar_dependencias.py",         "instalar_dependencias.py"),
-    ("README.md",                        "README.md"),
 ]
 
 BASE_DIR = Path(__file__).parent
@@ -48,11 +46,11 @@ def main():
     print()
 
     sucessos = 0
-    erros    = 0
+    erros = 0
 
     for origem, destino_rel in ARQUIVOS:
         destino = BASE_DIR / destino_rel
-        url     = f"{REPO_RAW}/{origem}"
+        url = f"{REPO_RAW}/{origem}"
 
         print(f"  Atualizando: {destino_rel} ...", end=" ", flush=True)
 
