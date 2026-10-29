@@ -64,11 +64,14 @@ BORDA = Border(
     bottom=Side(style="thin"),
 )
 COLUNAS = [
-    ("Nome",  40),
-    ("DATA",  14),
-    ("DOC",   22),
-    ("COMP",  45),
-    ("VALOR", 14),
+    ("NOME",    40),
+    ("DT_VENC", 14),
+    ("DT_PGTO", 14),
+    ("VALOR",   14),
+    ("DOC",     22),
+    ("COMPL",   45),
+    ("D/C",      6),
+    ("HP",       6),
 ]
 
 # ── Prompt do sistema ─────────────────────────────────────────
@@ -79,6 +82,7 @@ Campos de cada registro:
 - tipo: classifique o documento (BOLETO, NFSe, NFCe, DAS, DARF, FGTS, HOLERITE, RCI, FATURA_TELEFONE, ENERGIA, AGUA, ISS, SINDICATO, COMPROVANTE_PIX, COMPROVANTE_CARTAO, CHEQUE, EXTRATO_CARTAO, RELATORIO, FERIAS, RESCISAO, AVISO_PREVIO, DESCONHECIDO)
 - nome: nome do beneficiário, fornecedor ou empresa emissora — NUNCA inclua CPF ou CNPJ
 - data: data de vencimento ou emissão no formato DD/MM/YYYY obrigatoriamente
+- dt_pgto: data de pagamento extraída de carimbo "PAGO" ou equivalente, no formato DD/MM/YYYY; retorne "" se não houver carimbo
 - doc: número do documento (nota fiscal, boleto, número da fatura, etc.)
 - comp: descrição resumida do pagamento — inclua competência, nome do funcionário se houver, serviço ou produto
 - valor: valor monetário principal no formato brasileiro (ex: 1.234,56)
@@ -87,9 +91,16 @@ ATENÇÃO — MÚLTIPLOS DOCUMENTOS NA MESMA PÁGINA:
 - Se a página contiver mais de um documento (ex: vários cheques, vários comprovantes de cartão), retorne um ARRAY JSON com um objeto por documento.
 - Se houver apenas um documento, retorne um objeto JSON simples (não array).
 
+ATENÇÃO — COMPROVANTE DE PAGAMENTO ANEXADO:
+- Se a página for um comprovante de pagamento (PIX, TED, boleto pago, recibo) referente a um documento já processado na página anterior (mesmo valor, mesmo beneficiário ou mesmo número de documento), NÃO gere um novo registro — retorne um objeto JSON vazio: {}
+- Nesses casos, a data de pagamento do comprovante já foi capturada como dt_pgto no registro da página anterior via carimbo PAGO.
+
 Regras importantes:
 - Se um campo não existir, retorne string vazia ""
+- TODOS os campos de texto (nome, doc, comp) devem ser retornados em CAIXA ALTA (maiúsculas)
+- TODOS os campos de texto devem ter caracteres especiais removidos: substitua acentos (á→A, ç→C, ã→A, etc.), remova Nº, ®, ©, remova barras "/" quando não forem parte de datas ou números de documento, substitua hífens decorativos por espaço
 - campo nome: NUNCA inclua CPF (11 dígitos) ou CNPJ (14 dígitos) — extraia apenas o nome
+- campo dt_pgto: procure ativamente por carimbo "PAGO" ou "QUITADO" ou equivalente na imagem — pode estar em qualquer posição, inclusive sobreposto ao documento; extraia a data no formato DD/MM/YYYY
 - Para HOLERITE: inclua o nome do funcionário no campo comp (ex: "SALÁRIO SET/2025 - JOAO SILVA")
 - Para RCI: inclua o nome do prestador no campo comp (ex: "PRO-LABORE SET/2025 - JOAO SILVA")
 - Para COMPROVANTE_CARTAO: nome deve ser o estabelecimento; comp deve indicar bandeira e tipo (ex: "MASTERCARD CRÉDITO À VISTA")
@@ -101,8 +112,9 @@ Regras importantes:
 - Retorne SOMENTE o JSON, sem nenhum texto adicional
 
 Exemplos:
-- Um documento:   {"tipo":"BOLETO","nome":"SANEAGO","data":"10/11/2025","doc":"123456","comp":"ÁGUA NOV/2025","valor":"187,43"}
-- Múltiplos docs: [{"tipo":"CHEQUE","nome":"JOAO SILVA","data":"22/11/2025","doc":"","comp":"CHEQUE BOA PARA NOV/2025","valor":"1.941,32"},{"tipo":"CHEQUE","nome":"JOAO SILVA","data":"22/12/2025","doc":"","comp":"CHEQUE BOA PARA DEZ/2025","valor":"1.941,32"}]"""
+- Um documento:   {"tipo":"BOLETO","nome":"SANEAGO","data":"10/11/2025","dt_pgto":"28/10/2026","doc":"123456","comp":"AGUA NOV 2025","valor":"187,43"}
+- Sem carimbo:    {"tipo":"DAS","nome":"AILDO MARTINS ROCHA","data":"20/08/2026","dt_pgto":"","doc":"07.08.26210.7155750-1","comp":"DAS MEI JUL 2026","valor":"82,05"}
+- Múltiplos docs: [{"tipo":"CHEQUE","nome":"JOAO SILVA","data":"22/11/2025","dt_pgto":"","doc":"","comp":"CHEQUE BOA PARA NOV 2025","valor":"1.941,32"},{"tipo":"CHEQUE","nome":"JOAO SILVA","data":"22/12/2025","dt_pgto":"","doc":"","comp":"CHEQUE BOA PARA DEZ 2025","valor":"1.941,32"}]"""
 
 
 # ══════════════════════════════════════════════════════════════
@@ -210,11 +222,14 @@ def gerar_excel(registros, caminho_saida):
     for i, reg in enumerate(registros, 2):
         par    = i % 2 == 0
         valores = [
-            reg.get("nome",  ""),
-            reg.get("data",  ""),
-            reg.get("doc",   ""),
-            reg.get("comp",  ""),
-            reg.get("valor", ""),
+            reg.get("nome",    ""),
+            reg.get("data",    ""),
+            reg.get("dt_pgto", ""),
+            reg.get("valor",   ""),
+            reg.get("doc",     ""),
+            reg.get("comp",    ""),
+            "",  # D/C — preenchido pelo cliente
+            "",  # HP  — preenchido pelo cliente
         ]
         for col, val in enumerate(valores, 1):
             cel           = ws.cell(row=i, column=col, value=val)
@@ -264,6 +279,8 @@ def processar_pdf(caminho_pdf, caminho_saida=None):
             tempo             = round(time.time() - t0, 1)
 
             for resultado in resultados_pagina:
+                if not resultado:  # ignora {} retornado para comprovante anexado
+                    continue
                 tipo = resultado.get("tipo", "DESCONHECIDO")
                 nome = resultado.get("nome", "")
                 nome = re.sub(r"\s*\d{11}\s*$", "", nome).strip()
@@ -291,7 +308,7 @@ def processar_pdf(caminho_pdf, caminho_saida=None):
     vistos           = set()
     registros_unicos = []
     for r in registros:
-        chave = (r.get("tipo"), r.get("valor"), r.get("data"), r.get("nome"))
+        chave = (r.get("tipo"), r.get("valor"), r.get("data"), r.get("nome"), r.get("dt_pgto"))
         if chave not in vistos:
             vistos.add(chave)
             registros_unicos.append(r)
